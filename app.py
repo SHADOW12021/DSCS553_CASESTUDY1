@@ -52,10 +52,13 @@ def respond(
     max_tokens,
     temperature,
     top_p,
-    hf_token: gr.OAuthToken,
     use_local_model: bool,
+    hf_token=None,
 ):
     global pipe
+    
+    if hf_token is None:
+        hf_token = os.getenv("HF_TOKEN")
 
     # Build messages from history
     messages = [{"role": "system", "content": system_message}]
@@ -69,7 +72,7 @@ def respond(
         from transformers import pipeline
         import torch
         if pipe is None:
-            pipe = pipeline("text-generation", model="microsoft/Phi-3-mini-4k-instruct")
+            pipe = pipeline("text-generation", model="Qwen/Qwen3-0.6B")
 
         # Build prompt as plain text
         prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
@@ -88,11 +91,11 @@ def respond(
     else:
         print("[MODE] api")
 
-        if hf_token is None or not getattr(hf_token, "token", None):
-            yield "⚠️ Please log in with your Hugging Face account first."
-            return
+        # if hf_token is None or not getattr(hf_token, "token", None):
+        #     yield "⚠️ Please log in with your Hugging Face account first."
+        #     return
 
-        client = InferenceClient(token=hf_token.token, model="openai/gpt-oss-20b")
+        client = InferenceClient(token=hf_token, model="Qwen/Qwen3-0.6B:fireworks-ai") # chnage to your preferred gwen 
 
         for chunk in client.chat_completion(
             messages,
