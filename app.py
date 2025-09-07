@@ -1,6 +1,7 @@
 import gradio as gr
 from huggingface_hub import InferenceClient
 import os
+import openai
 
 pipe = None
 stop_inference = False
@@ -52,14 +53,11 @@ def respond(
     max_tokens,
     temperature,
     top_p,
+    hf_token: gr.OAuthToken,
     use_local_model: bool,
-    hf_token=None,
 ):
     global pipe
     
-    if hf_token is None:
-        hf_token = os.getenv("HF_TOKEN")
-
     # Build messages from history
     messages = [{"role": "system", "content": system_message}]
     messages.extend(history)
@@ -69,47 +67,75 @@ def respond(
 
     if use_local_model:
         print("[MODE] local")
-        from transformers import pipeline
+        from transformers import AutoModelForCausalLM, AutoTokenizer
         import torch
+    
         if pipe is None:
-            pipe = pipeline("text-generation", model="Qwen/Qwen3-0.6B")
-
-        # Build prompt as plain text
-        prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
-
-        outputs = pipe(
-            prompt,
+            model_name = "Qwen/Qwen3-0.6B"
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForCausalLM.from_pretrained(model_name)
+            pipe = (tokenizer, model)
+    
+        tokenizer, model = pipe
+    
+        # Force /no_think for every user message
+        messages = [{"role": "system", "content": system_message}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": message + " /no_think"})
+    
+        # Use Qwen’s chat template
+        text = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+    
+        inputs = tokenizer(text, return_tensors="pt")
+        output_ids = model.generate(
+            **inputs,
             max_new_tokens=max_tokens,
             do_sample=True,
             temperature=temperature,
             top_p=top_p,
-        )
-
-        response = outputs[0]["generated_text"][len(prompt):]
+        )[0][len(inputs.input_ids[0]):].tolist()
+    
+        response = tokenizer.decode(output_ids, skip_special_tokens=True)
         yield response.strip()
 
     else:
         print("[MODE] api")
 
-        # if hf_token is None or not getattr(hf_token, "token", None):
-        #     yield "⚠️ Please log in with your Hugging Face account first."
-        #     return
+        if hf_token is None or not getattr(hf_token, "token", None):
+            yield "⚠️ Please log in with your Hugging Face account first."
+            return
 
-        client = InferenceClient(token=hf_token, model="Qwen/Qwen3-0.6B:fireworks-ai") # chnage to your preferred gwen 
+        # client = InferenceClient(token=hf_token.token, model="Qwen/Qwen3-0.6B")
+        client = openai.OpenAI(
+        base_url="https://router.huggingface.co/v1",
+        api_key=hf_token.token,
+        )
 
-        for chunk in client.chat_completion(
-            messages,
+        # qwen format
+        clean_messages = []
+        for m in messages:
+            clean_messages.append({
+                "role": m.get("role", "user"),
+                "content": m.get("content", ""),
+            })
+    
+        stream = client.chat.completions.create(
+            model="Qwen/Qwen3-Coder-30B-A3B-Instruct:fireworks-ai",
+            messages=clean_messages,
             max_tokens=max_tokens,
             stream=True,
             temperature=temperature,
             top_p=top_p,
-        ):
-            choices = chunk.choices
-            token = ""
-            if len(choices) and choices[0].delta.content:
-                token = choices[0].delta.content
-            response += token
-            yield response
+        )
+    
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                response += chunk.choices[0].delta.content
+                yield response
 
 
 chatbot = gr.ChatInterface(
