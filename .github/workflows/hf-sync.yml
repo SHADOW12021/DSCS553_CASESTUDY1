@@ -17,4 +17,4 @@ jobs:
       - name: Push to hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force https://rcpaffenroth:$HF_TOKEN@huggingface.co/spaces/rcpaffenroth/CSDS553_Demo HEAD:main
+        run: git push --force https://gocuretirizarry:$HF_TOKEN@huggingface.co/spaces/gocuretirizarry/Case-study-1_chat case_study_1_2025:main

@@ -9,14 +9,14 @@ stop_inference = False
 # Fancy styling
 fancy_css = """
 #main-container {
-    background-color: #f0f0f0;
+    background-color: #FFFFFF;
     font-family: 'Arial', sans-serif;
 }
 .gradio-container {
     max-width: 700px;
     margin: 0 auto;
     padding: 20px;
-    background: white;
+    background: #FFFFFF;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     border-radius: 10px;
 }
@@ -30,7 +30,16 @@ fancy_css = """
     transition: background-color 0.3s ease;
 }
 .gr-button:hover {
-    background-color: #45a049;
+    background-color: #274596;
+}
+.my-slider input {
+    accent-color: #4CAF50;  /* changes the slider thumb & track color */
+}
+
+.my-chatbox {
+    background-color: rgb(37, 150, 190) !important;  /* changes chat background */
+    border-radius: 12px;
+    padding: 10px;
 }
 .gr-slider input {
     color: #4CAF50;
@@ -42,7 +51,7 @@ fancy_css = """
     text-align: center;
     font-size: 2em;
     margin-bottom: 20px;
-    color: #333;
+    color: #000000;
 }
 """
 
@@ -150,9 +159,9 @@ chatbot = gr.ChatInterface(
     type="messages",
 )
 
-with gr.Blocks(css=fancy_css) as demo:
+with gr.Blocks(css=gr.themes.Glass()) as demo:
     with gr.Row():
-        gr.Markdown("<h1 style='text-align: center;'>🔮 Talking With Gandalf 🪄</h1>")
+        gr.Markdown("<h1 style='text-align: center; color: Black;'>🔮 Talking With Gandalf 🪄</h1>")
         gr.LoginButton()
     chatbot.render()
 
