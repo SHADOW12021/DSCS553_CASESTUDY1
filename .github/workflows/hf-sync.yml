@@ -2,9 +2,9 @@ name: CI/CD to Hugging Face Space
 
 on:
   push:
-    branches: [ master ]
+    branches: [ case_study_1_2025 ]
   pull_request:
-    branches: [ master ]
+    branches: [ case_study_1_2025 ]
   workflow_dispatch:
 
 jobs:
