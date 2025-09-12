@@ -58,7 +58,7 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
           args: |
-            ✅ Hugging Face Space *Dark_Fantasy_Image_Generator* has been successfully synced!
+            ✅ Hugging Face Space *🔮 Talking With Gandalf 🪄* has been successfully synced!
             Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
             Run: ${{ github.run_id }}
