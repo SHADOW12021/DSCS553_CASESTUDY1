@@ -1,0 +1,39 @@
+name: Server Watchdog
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # run every 5 minutes
+  workflow_dispatch:         # allow manual trigger too
+
+jobs:
+  check-server:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p 22009 paffenroth-23.dyn.wpi.edu >> ~/.ssh/known_hosts
+
+      - name: Check repo folder on server
+        id: check-folder
+        run: |
+          if ssh -i ~/.ssh/id_rsa -p 22009 student-admin@paffenroth-23.dyn.wpi.edu "[ -d ~/DSCS553_CASESTUDY1 ]"; then
+            echo "✅ Repo exists on server. Skipping deploy."
+            echo "repo_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Repo missing. Need redeploy."
+            echo "repo_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run deploy scripts
+        if: steps.check-folder.outputs.repo_exists == 'false'
+        run: |
+          chmod +x scripts/deploy_first_part.sh scripts/deploy_second_part.sh
+          scripts/deploy_first_part.sh
+          scripts/deploy_second_part.sh
