@@ -53,7 +53,7 @@ PYTHON=python3.10
 VENV_DIR="\$REPO_DIR/venv"
 REQUIREMENTS_FILE="\$REPO_DIR/requirements.txt"
 BRANCH_NAME="$BRANCH_NAME"
-HF_TOKEN="$HF_TOKEN"
+HF_TOKEN=$HF_TOKEN
 
 echo "Installing Python 3.10 if not present..."
 sudo apt-get update
@@ -66,10 +66,10 @@ echo "Cloning repo from specified branch..."
 rm -rf "\$REPO_DIR"
 git clone --branch "\$BRANCH_NAME" --single-branch $REPO_URL "\$REPO_DIR"
 
-# --- Add HF token securely to .env ---
-echo "Creating .env file with Hugging Face token..."
-echo "HF_TOKEN='\$HF_TOKEN'" > "\$REPO_DIR/.env"
-chmod 600 "\$REPO_DIR/.env"
+# --- Add HF token securely to .env inside the cloned repo ---
+echo "Creating .env file with Hugging Face token inside repo..."
+echo "HF_TOKEN='$HF_TOKEN'" > "$REPO_DIR/.env"
+chmod 600 "$REPO_DIR/.env"
 
 echo "Setting up Python 3.10 virtual environment..."
 \$PYTHON -m venv "\$VENV_DIR"

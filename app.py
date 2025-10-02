@@ -1,15 +1,17 @@
 import gradio as gr
 from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
+from pathlib import Path
 import os
 import openai
 
 pipe = None
 stop_inference = False
 
-load_dotenv(".env")  
-HF_TOKEN = os.getenv("HF_TOKEN")
+env_path = Path(__file__).parent / ".env"
+load_dotenv(env_path)
 
+HF_TOKEN = os.getenv("HF_TOKEN")
 if HF_TOKEN is None:
     raise ValueError("HF_TOKEN not found in environment or .env file")
 
