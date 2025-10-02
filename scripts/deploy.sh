@@ -12,7 +12,7 @@ REPO_URL="https://github.com/SHADOW12021/DSCS553_CASESTUDY1.git"
 REPO_DIR="DSCS553_CASESTUDY1"
 BRANCH_NAME="case_study_1_2025"
 MAIN_SCRIPT="app.py"
-HF_TOKEN="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"
+
 # ====================================
 
 echo "📌 Adding all provided public keys to authorized_keys..."
@@ -66,17 +66,23 @@ echo "Cloning repo from specified branch..."
 rm -rf "\$REPO_DIR"
 git clone --branch "\$BRANCH_NAME" --single-branch $REPO_URL "\$REPO_DIR"
 
+# --- Add HF token securely to .env ---
+echo "Creating .env file with Hugging Face token..."
+echo "HF_TOKEN='\$HF_TOKEN'" > "\$REPO_DIR/.env"
+chmod 600 "\$REPO_DIR/.env"
+
 echo "Setting up Python 3.10 virtual environment..."
 \$PYTHON -m venv "\$VENV_DIR"
 source "\$VENV_DIR/bin/activate"
 \$PYTHON -m pip install --upgrade pip
 \$PYTHON -m pip install -r "\$REQUIREMENTS_FILE"
+\$PYTHON -m pip install python-dotenv  # ensure dotenv is installed
 
 echo "Killing any previous instance of app.py (if running)..."
 pkill -f "\$MAIN_SCRIPT" || true
 
 echo "Launching app.py in background—logs go to output.log"
-nohup env HF_TOKEN="\$HF_TOKEN" \$PYTHON "\$REPO_DIR/\$MAIN_SCRIPT" > "\$REPO_DIR/output.log" 2>&1 &
+nohup \$PYTHON "\$REPO_DIR/\$MAIN_SCRIPT" > "\$REPO_DIR/output.log" 2>&1 &
 
 echo "✅ Setup complete: repo ready and app running via nohup."
 ENDSSH

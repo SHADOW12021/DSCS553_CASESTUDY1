@@ -6,7 +6,11 @@ import openai
 pipe = None
 stop_inference = False
 
-HF_TOKEN = "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"
+load_dotenv(".env")  
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+if HF_TOKEN is None:
+    raise ValueError("HF_TOKEN not found in environment or .env file")
 
 # Fancy styling
 fancy_css = """
@@ -91,7 +95,7 @@ def respond(
 
         tokenizer, model = pipe
 
-        # Append /no_think to avoid hallucinations
+    
         messages = [{"role": "system", "content": system_message}]
         messages.extend(history)
         messages.append({"role": "user", "content": message + " /no_think"})
