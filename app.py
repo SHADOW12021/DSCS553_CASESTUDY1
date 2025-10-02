@@ -92,16 +92,13 @@ def respond(
 
         if pipe is None:
             model_name = "Qwen/Qwen3-0.6B"
-            tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=HF_TOKEN)
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name, 
-                use_auth_token=HF_TOKEN,
-                device_map="auto"
-            )
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForCausalLM.from_pretrained(model_name)
             pipe = (tokenizer, model)
 
         tokenizer, model = pipe
 
+    
         messages = [{"role": "system", "content": system_message}]
         messages.extend(history)
         messages.append({"role": "user", "content": message + " /no_think"})
@@ -112,7 +109,7 @@ def respond(
             add_generation_prompt=True
         )
 
-        inputs = tokenizer(text, return_tensors="pt").to(model.device)
+        inputs = tokenizer(text, return_tensors="pt")
         output_ids = model.generate(
             **inputs,
             max_new_tokens=max_tokens,
@@ -123,7 +120,6 @@ def respond(
 
         response = tokenizer.decode(output_ids, skip_special_tokens=True)
         yield response.strip()
-
 
     else:
         print("[MODE] api")
