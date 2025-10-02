@@ -4,3 +4,5 @@ pytest
 gradio
 gradio[oauth]
 python-dotenv
+transformers>=4.35.0
+torch==2.1.0+cpu --index-url https://download.pytorch.org/whl/cpu
