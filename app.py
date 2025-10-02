@@ -1,5 +1,6 @@
 import gradio as gr
 from huggingface_hub import InferenceClient
+from dotenv import load_dotenv
 import os
 import openai
 

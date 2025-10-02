@@ -3,3 +3,4 @@ openai
 pytest
 gradio
 gradio[oauth]
+python-dotenv
