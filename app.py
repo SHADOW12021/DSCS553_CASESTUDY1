@@ -129,7 +129,7 @@ def respond(
         print("[MODE] api")
 
         client = openai.OpenAI(
-            base_url="https://api-inference.huggingface.co/models",
+            base_url="https://router.huggingface.co/v1",
             api_key=HF_TOKEN,
         )
 
