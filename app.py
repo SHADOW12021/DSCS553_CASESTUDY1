@@ -6,6 +6,8 @@ import openai
 pipe = None
 stop_inference = False
 
+HF_TOKEN = "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"
+
 # Fancy styling
 fancy_css = """
 #main-container {
@@ -35,9 +37,8 @@ fancy_css = """
 .my-slider input {
     accent-color: #4CAF50;  /* changes the slider thumb & track color */
 }
-
 .my-chatbox {
-    background-color: rgb(37, 150, 190) !important;  /* changes chat background */
+    background-color: rgb(37, 150, 190) !important;
     border-radius: 12px;
     padding: 10px;
 }
@@ -61,13 +62,16 @@ def respond(
     max_tokens,
     temperature,
     top_p,
-    hf_token: gr.OAuthToken,
     use_local_model: bool,
 ):
     global pipe
 
-    system_message = "You are Gandalf from The Lords of the Rings. You do not have knwledge from modern technologies and only have information about magic and lord of the rings information. You love speaking in riddles."
-    # Build messages from history
+    system_message = (
+        "You are Gandalf from The Lords of the Rings. "
+        "You do not have knowledge from modern technologies "
+        "and only have information about magic and lord of the rings information. "
+        "You love speaking in riddles."
+    )
     messages = [{"role": "system", "content": system_message}]
     messages.extend(history)
     messages.append({"role": "user", "content": message})
@@ -78,27 +82,26 @@ def respond(
         print("[MODE] local")
         from transformers import AutoModelForCausalLM, AutoTokenizer
         import torch
-    
+
         if pipe is None:
             model_name = "Qwen/Qwen3-0.6B"
             tokenizer = AutoTokenizer.from_pretrained(model_name)
             model = AutoModelForCausalLM.from_pretrained(model_name)
             pipe = (tokenizer, model)
-    
+
         tokenizer, model = pipe
-    
-        # Force /no_think for every user message
+
+        # Append /no_think to avoid hallucinations
         messages = [{"role": "system", "content": system_message}]
         messages.extend(history)
         messages.append({"role": "user", "content": message + " /no_think"})
-    
-        # Use Qwen’s chat template
+
         text = tokenizer.apply_chat_template(
             messages,
             tokenize=False,
             add_generation_prompt=True
         )
-    
+
         inputs = tokenizer(text, return_tensors="pt")
         output_ids = model.generate(
             **inputs,
@@ -107,31 +110,25 @@ def respond(
             temperature=temperature,
             top_p=top_p,
         )[0][len(inputs.input_ids[0]):].tolist()
-    
+
         response = tokenizer.decode(output_ids, skip_special_tokens=True)
         yield response.strip()
 
     else:
         print("[MODE] api")
 
-        if hf_token is None or not getattr(hf_token, "token", None):
-            yield "⚠️ Please log in with your Hugging Face account first."
-            return
-
-        # client = InferenceClient(token=hf_token.token, model="Qwen/Qwen3-0.6B")
         client = openai.OpenAI(
-        base_url="https://router.huggingface.co/v1",
-        api_key=hf_token.token,
+            base_url="https://router.huggingface.co/v1",
+            api_key=HF_TOKEN,
         )
 
-        # qwen format
         clean_messages = []
         for m in messages:
             clean_messages.append({
                 "role": m.get("role", "user"),
                 "content": m.get("content", ""),
             })
-    
+
         stream = client.chat.completions.create(
             model="Qwen/Qwen3-Coder-30B-A3B-Instruct:fireworks-ai",
             messages=clean_messages,
@@ -140,7 +137,7 @@ def respond(
             temperature=temperature,
             top_p=top_p,
         )
-    
+
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 response += chunk.choices[0].delta.content
@@ -150,7 +147,6 @@ def respond(
 chatbot = gr.ChatInterface(
     fn=respond,
     additional_inputs=[
-        # gr.Textbox(value="You are a friendly Chatbot.", label="System message"),
         gr.Slider(minimum=1, maximum=2048, value=512, step=1, label="Max new tokens"),
         gr.Slider(minimum=0, maximum=2, value=0.7, step=0.1, label="Temperature"),
         gr.Slider(minimum=0.1, maximum=1.0, value=0.95, step=0.05, label="Top-p (nucleus sampling)"),
@@ -161,10 +157,8 @@ chatbot = gr.ChatInterface(
 
 with gr.Blocks(css=gr.themes.Glass()) as demo:
     with gr.Row():
-        gr.Markdown("<h1 style='text-align: center; color: Black;'>🔮 Talking With Gandalf 🪄</h1>")
-        gr.LoginButton()
+        gr.Markdown("<h1 style='text-align: center; color: white;'>🔮 Talking With Gandalf 🪄</h1>")
     chatbot.render()
 
 if __name__ == "__main__":
     demo.launch()
-# test workflow
