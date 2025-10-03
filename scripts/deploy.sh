@@ -12,7 +12,7 @@ REPO_URL="https://github.com/SHADOW12021/DSCS553_CASESTUDY1.git"
 REPO_DIR="DSCS553_CASESTUDY1"
 BRANCH_NAME="case_study_1_2025"
 MAIN_SCRIPT="app.py"
-
+HF_TOKEN="#######ADD_YOUR_HF_TOKEN_HERE#######"  # Replace with your actual Hugging Face READ token
 # ====================================
 
 echo "📌 Adding all provided public keys to authorized_keys..."
