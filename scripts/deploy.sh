@@ -68,7 +68,7 @@ git clone --branch "\$BRANCH_NAME" --single-branch $REPO_URL "\$REPO_DIR"
 
 # --- Add HF token securely to .env inside the cloned repo ---
 echo "Creating .env file with Hugging Face token inside repo..."
-echo "HF_TOKEN='$HF_TOKEN'" > "$REPO_DIR/.env"
+echo "HF_TOKEN=$HF_TOKEN" > "$REPO_DIR/.env"
 chmod 600 "$REPO_DIR/.env"
 
 echo "Setting up Python 3.10 virtual environment..."
