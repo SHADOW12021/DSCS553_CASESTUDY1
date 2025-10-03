@@ -26,3 +26,5 @@ while true; do
     echo "Sleeping for $INTERVAL seconds..."
     sleep $INTERVAL
 done
+
+# run:  "nohup bash watchdog.sh > watchdog.log 2>&1 &" to run in background the script
