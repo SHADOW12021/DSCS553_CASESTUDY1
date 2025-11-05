@@ -6,3 +6,4 @@ gradio[oauth]
 python-dotenv
 transformers>=4.35.0
 torch
+prometheus_client>=0.20

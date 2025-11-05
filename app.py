@@ -4,9 +4,23 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 import openai
+import time
+from prometheus_client import start_http_server, Counter, Summary
 
 pipe = None
 stop_inference = False
+
+# --- Prometheus metrics ---
+REQUEST_COUNTER       = Counter('app_requests_total',               'Total number of requests')
+SUCCESSFUL_REQUESTS   = Counter('app_successful_requests_total',    'Total number of successful requests')
+FAILED_REQUESTS       = Counter('app_failed_requests_total',        'Total number of failed requests')
+REQUEST_DURATION      = Summary('app_request_duration_seconds',     'Time spent processing request')
+
+# --- Additional Prometheus metrics ---
+ACTIVE_REQUESTS        = Counter('app_active_requests_total',        'Number of currently active requests')
+TOKEN_USAGE            = Counter('app_tokens_generated_total',       'Total number of tokens generated across all responses')
+REQUEST_ERRORS_BY_TYPE = Counter('app_request_errors_by_type_total', 'Number of failed requests grouped by error type', ['error_type'])
+REQUEST_LATENCY        = Summary('app_request_latency_seconds',      'Latency distribution of requests')
 
 env_path = Path(__file__).parent / ".env"
 load_dotenv(env_path)
@@ -42,7 +56,7 @@ fancy_css = """
     background-color: #274596;
 }
 .my-slider input {
-    accent-color: #4CAF50;  /* changes the slider thumb & track color */
+    accent-color: #4CAF50;
 }
 .my-chatbox {
     background-color: rgb(37, 150, 190) !important;
@@ -72,84 +86,103 @@ def respond(
     use_local_model: bool,
 ):
     global pipe
-
-    system_message = (
-        "You are Gandalf from The Lords of the Rings. "
-        "You do not have knowledge from modern technologies "
-        "and only have information about magic and lord of the rings information. "
-        "You love speaking in riddles."
-    )
-    messages = [{"role": "system", "content": system_message}]
-    messages.extend(history)
-    messages.append({"role": "user", "content": message})
-
-    response = ""
-
-    if use_local_model:
-        print("[MODE] local")
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-        import torch
-
-        if pipe is None:
-            model_name = "Qwen/Qwen3-0.6B"
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = AutoModelForCausalLM.from_pretrained(model_name)
-            pipe = (tokenizer, model)
-
-        tokenizer, model = pipe
-
+    REQUEST_COUNTER.inc()
+    ACTIVE_REQUESTS.inc()
+    start_t = time.perf_counter()
     
+    try:
+        system_message = (
+            "You are Gandalf from The Lords of the Rings. "
+            "You do not have knowledge from modern technologies "
+            "and only have information about magic and lord of the rings information. "
+            "You love speaking in riddles."
+        )
         messages = [{"role": "system", "content": system_message}]
         messages.extend(history)
-        messages.append({"role": "user", "content": message + " /no_think"})
+        messages.append({"role": "user", "content": message})
+        response = ""
 
-        text = tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
+        if use_local_model:
+            print("[MODE] local")
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+            import torch
 
-        inputs = tokenizer(text, return_tensors="pt")
-        output_ids = model.generate(
-            **inputs,
-            max_new_tokens=max_tokens,
-            do_sample=True,
-            temperature=temperature,
-            top_p=top_p,
-        )[0][len(inputs.input_ids[0]):].tolist()
+            if pipe is None:
+                model_name = "Qwen/Qwen3-0.6B"
+                tokenizer = AutoTokenizer.from_pretrained(model_name)
+                model = AutoModelForCausalLM.from_pretrained(model_name)
+                pipe = (tokenizer, model)
 
-        response = tokenizer.decode(output_ids, skip_special_tokens=True)
-        yield response.strip()
+            tokenizer, model = pipe
 
-    else:
-        print("[MODE] api")
+            messages = [{"role": "system", "content": system_message}]
+            messages.extend(history)
+            messages.append({"role": "user", "content": message + " /no_think"})
 
-        client = openai.OpenAI(
-            base_url="https://router.huggingface.co/v1",
-            api_key=HF_TOKEN,
-        )
+            text = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
 
-        clean_messages = []
-        for m in messages:
-            clean_messages.append({
-                "role": m.get("role", "user"),
-                "content": m.get("content", ""),
-            })
+            inputs = tokenizer(text, return_tensors="pt")
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_tokens,
+                do_sample=True,
+                temperature=temperature,
+                top_p=top_p,
+            )[0][len(inputs.input_ids[0]):].tolist()
 
-        stream = client.chat.completions.create(
-            model="Qwen/Qwen3-Coder-30B-A3B-Instruct:fireworks-ai",
-            messages=clean_messages,
-            max_tokens=max_tokens,
-            stream=True,
-            temperature=temperature,
-            top_p=top_p,
-        )
+            response = tokenizer.decode(output_ids, skip_special_tokens=True)
+            SUCCESSFUL_REQUESTS.inc()
+            TOKEN_USAGE.inc(len(output_ids))
+            yield response.strip()
 
-        for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                response += chunk.choices[0].delta.content
-                yield response
+        else:
+            print("[MODE] api")
 
+            client = openai.OpenAI(
+                base_url="https://router.huggingface.co/v1",
+                api_key=HF_TOKEN,
+            )
+
+            clean_messages = []
+            for m in messages:
+                clean_messages.append({
+                    "role": m.get("role", "user"),
+                    "content": m.get("content", ""),
+                })
+
+            stream = client.chat.completions.create(
+                model="Qwen/Qwen3-Coder-30B-A3B-Instruct:fireworks-ai",
+                messages=clean_messages,
+                max_tokens=max_tokens,
+                stream=True,
+                temperature=temperature,
+                top_p=top_p,
+            )
+
+            token_count = 0
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    text_piece = chunk.choices[0].delta.content
+                    response += text_piece
+                    token_count += len(text_piece.split())
+                    yield response
+
+            SUCCESSFUL_REQUESTS.inc()
+            TOKEN_USAGE.inc(token_count)
+                    
+    except Exception as e:
+        FAILED_REQUESTS.inc()
+        REQUEST_ERRORS_BY_TYPE.labels(error_type=type(e).__name__).inc()
+        yield f"Error: {e}"
+    finally:
+        duration = time.perf_counter() - start_t
+        REQUEST_DURATION.observe(duration)
+        REQUEST_LATENCY.observe(duration)
+        ACTIVE_REQUESTS.dec()
 
 chatbot = gr.ChatInterface(
     fn=respond,
@@ -168,4 +201,5 @@ with gr.Blocks(css=gr.themes.Glass()) as demo:
     chatbot.render()
 
 if __name__ == "__main__":
-    demo.launch()
+    start_http_server(8000)
+    demo.launch(server_name="0.0.0.0", server_port=7860)
