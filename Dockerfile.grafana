@@ -1,0 +1,8 @@
+FROM grafana/grafana-oss:latest
+
+
+WORKDIR /etc/grafana
+
+EXPOSE 3000
+
+CMD ["grafana-server", "--homepath=/usr/share/grafana"]

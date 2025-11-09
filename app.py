@@ -155,7 +155,7 @@ def respond(
                 })
 
             stream = client.chat.completions.create(
-                model="Qwen/Qwen3-Coder-30B-A3B-Instruct:fireworks-ai",
+                model="Qwen/Qwen3-Coder-30B-A3B-Instruct:nebius",
                 messages=clean_messages,
                 max_tokens=max_tokens,
                 stream=True,
