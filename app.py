@@ -108,35 +108,38 @@ def respond(
             import torch
 
             if pipe is None:
-                model_name = "Qwen/Qwen3-0.6B"
-                tokenizer = AutoTokenizer.from_pretrained(model_name)
-                model = AutoModelForCausalLM.from_pretrained(model_name)
+                model_id = "allenai/Olmo-3-7B-Instruct"
+                tokenizer = AutoTokenizer.from_pretrained(model_id)
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_id,
+                    device_map="auto",
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+                )
+                model.eval()
                 pipe = (tokenizer, model)
 
             tokenizer, model = pipe
 
-            messages = [{"role": "system", "content": system_message}]
-            messages.extend(history)
-            messages.append({"role": "user", "content": message + " /no_think"})
+            full_prompt = ""
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                full_prompt += f"{role}: {content}\n"
+            full_prompt += "Gandalf:"
 
-            text = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True
-            )
+            inputs = tokenizer(full_prompt, return_tensors="pt").to(model.device)
 
-            inputs = tokenizer(text, return_tensors="pt")
             output_ids = model.generate(
                 **inputs,
                 max_new_tokens=max_tokens,
                 do_sample=True,
                 temperature=temperature,
                 top_p=top_p,
-            )[0][len(inputs.input_ids[0]):].tolist()
+            )
 
-            response = tokenizer.decode(output_ids, skip_special_tokens=True)
+            response = tokenizer.decode(output_ids[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
             SUCCESSFUL_REQUESTS.inc()
-            TOKEN_USAGE.inc(len(output_ids))
+            TOKEN_USAGE.inc(len(output_ids[0]))
             yield response.strip()
 
         else:
